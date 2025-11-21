@@ -1,77 +1,103 @@
-// screens/RegisterScreen.js
+// Archivo: screens/RegisterScreen.js
+
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+// Importamos 'Alert' para mostrar mensajes al usuario
+import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import AuthContainer from '../components/AuthContainer.js';
+import { styles } from '../styles/registerScreenStyles';
+// Importamos nuestra función 'register' del servicio
+import { register } from '../services/authService';
 
 const RegisterScreen = ({ navigation }) => {
-  // --- NUEVO ESTADO PARA CONTROLAR EL PASO ---
-  const [step, setStep] = useState(1); // 1 para usuario, 2 para mascota
+  const [step, setStep] = useState(1);
 
-  // --- Estados para el formulario de USUARIO (Paso 1) ---
-  const [email, setEmail] = useState('');
+  // Estados para el formulario de USUARIO
+  const [correo, setcorreo] = useState('');
   const [nombre, setNombre] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [contrasena, setcontrasena] = useState('');
+  const [confirmcontrasena, setConfirmcontrasena] = useState('');
+  const [contrasenaError, setcontrasenaError] = useState('');
+  const [correoError, setcorreoError] = useState('');
   const [isFormValid, setIsFormValid] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Estado para feedback de carga
 
-  // --- Estados para el formulario de MASCOTA (Paso 2) ---
+  // Estados para el formulario de MASCOTA
   const [petName, setPetName] = useState('');
   const [petType, setPetType] = useState('');
   const [breed, setBreed] = useState('');
   const [age, setAge] = useState('');
 
-  // Lógica de validación (la misma que ya tenías)
   useEffect(() => {
-    if (confirmPassword.length > 0) {
-      setPasswordError(password !== confirmPassword ? 'Las contraseñas no coinciden.' : '¡Las contraseñas coinciden!');
+    if (confirmcontrasena.length > 0) {
+      setcontrasenaError(contrasena !== confirmcontrasena ? 'Las contraseñas no coinciden.' : '¡Las contraseñas coinciden!');
     } else {
-      setPasswordError('');
+      setcontrasenaError('');
     }
-  }, [password, confirmPassword]);
+  }, [contrasena, confirmcontrasena]);
 
   useEffect(() => {
-    const isValid = nombre.length > 0 && email.length > 0 && password.length > 0 && emailError === '' && password === confirmPassword;
+    const isValid = nombre.length > 0 && correo.length > 0 && contrasena.length > 6 && correoError === '' && contrasena === confirmcontrasena;
     setIsFormValid(isValid);
-  }, [nombre, email, password, confirmPassword, emailError]);
+  }, [nombre, correo, contrasena, confirmcontrasena, correoError]);
 
-  const validateEmail = () => {
-    const emailRegex = /\S+@\S+\.\S+/;
-    setEmailError(email.length > 0 && !emailRegex.test(email) ? 'Por favor, introduce un e-mail válido.' : '');
+  const validatecorreo = () => {
+    const correoRegex = /\S+@\S+\.\S+/;
+    setcorreoError(correo.length > 0 && !correoRegex.test(correo) ? 'Por favor, introduce un e-mail válido.' : '');
   };
 
-  // --- NUEVA FUNCIÓN para manejar el paso al siguiente formulario ---
   const handleNextStep = () => {
     if (isFormValid) {
-      setStep(2); // Cambiamos al paso 2
+      setStep(2);
     }
   };
 
-  // --- NUEVA FUNCIÓN para finalizar el registro ---
-  const handleFinishRegistration = () => {
-    // AQUÍ iría la lógica para enviar TODOS los datos (usuario y mascota) al backend
-    // Por ahora, solo navegamos a la pantalla de éxito.
-    navigation.navigate('Success');
+  const handleFinishRegistration = async () => {
+    // Prevenir doble clic
+    if (isLoading) return;
+    setIsLoading(true);
+
+    const userData = {
+      nombre,
+      correo,
+      contrasena,
+    };
+
+    try {
+      // Llamamos a nuestro servicio de registro
+      const response = await register(userData);
+      
+      console.log('Respuesta del registro:', response);
+      Alert.alert('¡Éxito!', 'Tu cuenta ha sido creada correctamente.');
+      
+      // Navegamos a la pantalla de éxito
+      navigation.navigate('Success');
+
+    } catch (error) {
+      // Si el backend envía un mensaje de error específico, lo mostramos.
+      // Si no, mostramos un mensaje genérico.
+      const errorMessage = error.response?.data?.detail || 'Ocurrió un error al registrarse. Inténtalo de nuevo.';
+      Alert.alert('Error de Registro', errorMessage);
+    } finally {
+      // Reactivamos el botón
+      setIsLoading(false);
+    }
+    // Nota: La lógica para registrar la mascota se podría añadir aquí en el futuro.
   };
 
-  // --- RENDERIZADO CONDICIONAL DE LOS FORMULARIOS ---
   const renderStepContent = () => {
     if (step === 1) {
-      // --- FORMULARIO DE USUARIO (tu código anterior) ---
       return (
         <>
           <Text style={styles.title}>Registro:</Text>
           <TextInput style={styles.input} placeholder="Nombre" value={nombre} onChangeText={setNombre} />
-          <TextInput style={[styles.input, email.length > 0 && (emailError ? styles.inputError : styles.inputSuccess)]} placeholder="E-mail" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" onBlur={validateEmail} />
-          {emailError ? <Text style={styles.errorMessage}>{emailError}</Text> : null}
-          <TextInput style={styles.input} placeholder="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
-          <TextInput style={[styles.input, confirmPassword.length > 0 && (password !== confirmPassword ? styles.inputError : styles.inputSuccess)]} placeholder="Repetir Contraseña" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
-          {passwordError ? <Text style={password === confirmPassword ? styles.successMessage : styles.errorMessage}>{passwordError}</Text> : null}
-
+          <TextInput style={[styles.input, correo.length > 0 && (correoError ? styles.inputError : styles.inputSuccess)]} placeholder="E-mail" value={correo} onChangeText={setcorreo} keyboardType="email-address" autoCapitalize="none" onBlur={validatecorreo} />
+          {correoError ? <Text style={styles.errorMessage}>{correoError}</Text> : null}
+          <TextInput style={styles.input} placeholder="Contraseña (mín. 6 caracteres)" value={contrasena} onChangeText={setcontrasena} secureTextEntry />
+          <TextInput style={[styles.input, confirmcontrasena.length > 0 && (contrasena !== confirmcontrasena ? styles.inputError : styles.inputSuccess)]} placeholder="Repetir Contraseña" value={confirmcontrasena} onChangeText={setConfirmcontrasena} secureTextEntry />
+          {contrasenaError ? <Text style={contrasena === confirmcontrasena ? styles.successMessage : styles.errorMessage}>{contrasenaError}</Text> : null}
           <TouchableOpacity 
             style={[styles.buttonPrimary, !isFormValid && styles.buttonDisabled]} 
-            onPress={handleNextStep} // Ahora llama a nuestra nueva función
+            onPress={handleNextStep}
             disabled={!isFormValid}
           >
             <Text style={styles.buttonText}>Siguiente</Text>
@@ -79,7 +105,6 @@ const RegisterScreen = ({ navigation }) => {
         </>
       );
     } else if (step === 2) {
-      // --- NUEVO FORMULARIO DE MASCOTA ---
       return (
         <>
           <Text style={styles.title}>Añade tu Mascota:</Text>
@@ -87,18 +112,17 @@ const RegisterScreen = ({ navigation }) => {
           <TextInput style={styles.input} placeholder="Tipo de mascota (ej. Perro, Gato)" value={petType} onChangeText={setPetType} />
           <TextInput style={styles.input} placeholder="Raza" value={breed} onChangeText={setBreed} />
           <TextInput style={styles.input} placeholder="Edad" value={age} onChangeText={setAge} keyboardType="numeric" />
-
-          {/* Botones de Guardar y Omitir para el paso 2 */}
           <View style={styles.buttonRow}>
             <TouchableOpacity 
               style={styles.buttonPrimaryFlex} 
-              onPress={handleFinishRegistration} // Finaliza el registro
+              onPress={handleFinishRegistration}
+              disabled={isLoading}
             >
-              <Text style={styles.buttonText}>Guardar</Text>
+              <Text style={styles.buttonText}>{isLoading ? 'Guardando...' : 'Guardar'}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.buttonSecondaryFlex} 
-              onPress={handleFinishRegistration} // Omitir también te lleva a 'Success'
+              onPress={() => navigation.navigate('Success')}
             >
               <Text style={styles.buttonSecondaryText}>Omitir</Text>
             </TouchableOpacity>
@@ -119,11 +143,7 @@ const RegisterScreen = ({ navigation }) => {
                 <Text style={styles.tabText}>Iniciar sesión</Text>
             </TouchableOpacity>
         </View>
-
-        {/* Llamamos a la función que renderiza el contenido del paso actual */}
         {renderStepContent()}
-
-        {/* El indicador de progreso ahora se actualiza según el estado 'step' */}
         <View style={styles.progressContainer}>
           <View style={[styles.progressDot, step === 1 && styles.progressDotActive]} />
           <View style={[styles.progressDot, step === 2 && styles.progressDotActive]} />
@@ -132,59 +152,5 @@ const RegisterScreen = ({ navigation }) => {
     </AuthContainer>
   );
 };
-
-// --- Estilos --- (Añadí los necesarios para los nuevos botones)
-const styles = StyleSheet.create({
-  // ... (todos tus estilos anteriores) ...
-  card: { backgroundColor: 'white', width: '100%', padding: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center' },
-  tabContainer: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#f0f0f0', borderRadius: 25, padding: 5 },
-  tab: { paddingVertical: 10, paddingHorizontal: 30, borderRadius: 20 },
-  activeTab: { backgroundColor: '#FFD100' },
-  tabText: { color: '#888', fontWeight: '600' },
-  activeTabText: { color: '#333', fontWeight: 'bold' },
-  title: { fontSize: 22, fontWeight: 'bold', alignSelf: 'flex-start', marginBottom: 40, color: '#333' },
-  input: { width: '100%', height: 50, borderBottomWidth: 1, borderBottomColor: '#ddd', marginBottom: 20, fontSize: 16 },
-  inputError: { borderBottomColor: 'red' },
-  inputSuccess: { borderBottomColor: 'green' },
-  errorMessage: { color: 'red', alignSelf: 'flex-start', marginBottom: 10, marginTop: -15 },
-  successMessage: { color: 'green', alignSelf: 'flex-start', marginBottom: 10, marginTop: -15 },
-  buttonPrimary: { width: '100%', height: 50, backgroundColor: '#732C71', borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
-  buttonText: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-  buttonDisabled: { backgroundColor: '#cccccc' },
-  progressContainer: { flexDirection: 'row', marginTop: 20 },
-  progressDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#ccc', marginHorizontal: 5 },
-  progressDotActive: { backgroundColor: '#732C71' },
-  
-  // --- NUEVOS ESTILOS PARA LOS BOTONES DEL PASO 2 ---
-  buttonRow: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  buttonPrimaryFlex: {
-    flex: 1,
-    marginRight: 10,
-    height: 50,
-    backgroundColor: '#732C71',
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonSecondaryFlex: {
-    flex: 1,
-    marginLeft: 10,
-    height: 50,
-    backgroundColor: '#E6E6FA',
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonSecondaryText: {
-    color: '#732C71',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-});
 
 export default RegisterScreen;

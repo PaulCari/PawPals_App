@@ -1,106 +1,128 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
+import { login } from '../services/authService';
+import { styles } from '../styles/loginScreenStyles';
 
-// Asegúrate de poner tu logo en la carpeta assets/images/
-const logo = require('../assets/logo.png'); // <-- CAMBIA ESTO por la ruta a tu logo
+const logo = require('../assets/logo.png');
 
-const LoginScreen = () => {
-  // Usamos "useState" para guardar lo que el usuario escribe
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const LoginScreen = ({ navigation }) => {
+  const [correo, setcorreo] = useState('');
+  const [contrasena, setcontrasena] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const maskPassword = (pw) => {
+    if (!pw) return '';
+    return '*'.repeat(Math.min(pw.length, 4)) + (pw.length > 4 ? `(+${pw.length - 4})` : '');
+  };
+
+  const handleLogin = async () => {
+    console.log('--- handleLogin iniciado ---');
+    console.log('Comprobando navigation:', !!navigation, navigation ? typeof navigation.replace : 'sin navigation');
+
+    if (!correo || !contrasena) {
+      console.warn('handleLogin: faltan datos de entrada.', { correo, contrasenaMasked: maskPassword(contrasena) });
+      Alert.alert('Error', 'Por favor, introduce tu correo y contraseña.');
+      return;
+    }
+
+    console.log('Intentando iniciar sesión con:', { correo, contrasenaMasked: maskPassword(contrasena) });
+    setIsLoading(true);
+    const startTime = Date.now();
+
+    try {
+      console.log('Llamando a authService.login(...)');
+      const response = await login(correo, contrasena);
+      const duration = Date.now() - startTime;
+      console.log(`Respuesta recibida del servicio de autenticación (t=${duration}ms):`, response);
+
+      if (!response) {
+        console.error('handleLogin: response es nulo/indefinido. Revisar authService/login.');
+        Alert.alert('Error', 'No se recibió respuesta del servidor. Intenta nuevamente.');
+        return;
+      }
+
+      const success = response.success ?? (response.token ? true : false);
+
+      if (success) {
+        console.log('✅ Login considerado exitoso por las comprobaciones locales.', {
+          tokenPresent: !!response.token,
+          successField: response.success
+        });
+
+        if (!navigation || typeof navigation.replace !== 'function') {
+          console.error('Navigation inválido: no se puede navegar a HomeScreen.', navigation);
+          Alert.alert('Error', 'No se puede cambiar de pantalla (navigation inválido).');
+          return;
+        }
+
+        console.log("Redirigiendo a 'HomeScreen' (navigation.replace('HomeScreen'))");
+        navigation.replace('Home');
+      } else {
+        console.warn('❌ Login fallido según la respuesta del servidor.', response);
+        const serverMessage = response.message || response.error || 'Usuario o contraseña incorrectos.';
+        Alert.alert('Error de inicio de sesión', serverMessage);
+      }
+    } catch (error) {
+      console.error('🔥 Error durante el proceso de login (catch):', error);
+      if (error?.response) {
+        console.error('Error.response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+      }
+      Alert.alert('Error de inicio de sesión', 'Ocurrió un problema al conectar con el servidor. Revisa la consola para más detalles.');
+    } finally {
+      setIsLoading(false);
+      console.log('--- handleLogin finalizado ---');
+    }
+  };
+  
+  const goToRegister = () => {
+    console.log("Navegando a 'RegisterScreen' (navigation.navigate)");
+    navigation.navigate('Register');
+  };
 
   return (
     <View style={styles.container}>
-      {/* Logo */}
       <Image source={logo} style={styles.logo} />
-
-      {/* Título */}
       <Text style={styles.title}>Welcome to PawPals</Text>
 
-      {/* Campo de Email */}
       <TextInput
         style={styles.input}
         placeholder="User / E-mail"
         placeholderTextColor="#888"
-        value={email}
-        onChangeText={setEmail} // Actualiza el estado 'email' al escribir
+        value={correo}
+        onChangeText={setcorreo}
+        keyboardType="email-address"
+        autoCapitalize="none"
       />
 
-      {/* Campo de Contraseña */}
       <TextInput
         style={styles.input}
         placeholder="Contraseña"
         placeholderTextColor="#888"
-        secureTextEntry={true} // Oculta la contraseña
-        value={password}
-        onChangeText={setPassword} // Actualiza el estado 'password' al escribir
+        secureTextEntry={true}
+        value={contrasena}
+        onChangeText={setcontrasena}
       />
       
-      {/* Botón de Iniciar Sesión */}
-      <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>Iniciar Sesión</Text>
+      <TouchableOpacity
+        style={[styles.button, isLoading && { opacity: 0.7 }]}
+        onPress={handleLogin}
+        disabled={isLoading}
+      >
+        <Text style={styles.buttonText}>{isLoading ? 'Iniciando...' : 'Iniciar Sesión'}</Text>
       </TouchableOpacity>
 
-      {/* Links de abajo */}
       <Text style={styles.linkText}>¿Olvidaste tu contraseña?</Text>
-      <Text style={styles.linkText}>
-        ¿No tienes una cuenta? <Text style={styles.registerLink}>Regístrate</Text>
-      </Text>
+      
+      <TouchableOpacity onPress={goToRegister}>
+        <Text style={styles.linkText}>
+          ¿No tienes una cuenta? <Text style={styles.registerLink}>Regístrate</Text>
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
-
-// Aquí van los estilos. Es como CSS pero en JavaScript.
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff', // O el color de fondo que uses
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  logo: {
-    width: 150,
-    height: 150,
-    resizeMode: 'contain',
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  input: {
-    width: '100%',
-    height: 50,
-    backgroundColor: '#f2f2f2',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    fontSize: 16,
-    marginBottom: 15,
-  },
-  button: {
-    width: '100%',
-    height: 50,
-    backgroundColor: '#8A2BE2', // Un color morado, ajústalo al tuyo
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  linkText: {
-    marginTop: 15,
-    color: '#555',
-  },
-  registerLink: {
-    color: '#8A2BE2', // Color morado para el link
-    fontWeight: 'bold',
-  },
-});
 
 export default LoginScreen;
